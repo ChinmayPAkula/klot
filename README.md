@@ -2,9 +2,6 @@
 
 A luxury streetwear brand website built with React and FastAPI. Features a live product catalog, order management, newsletter signups, contact forms, and returns & exchanges — all connected to a SQLite database.
 
-![KLOT](https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200&q=80&auto=format&fit=crop)
-
----
 
 ## Tech Stack
 
