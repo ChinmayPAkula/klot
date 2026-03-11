@@ -1,0 +1,6 @@
+klot-website/node_modules/
+klot-website/dist/
+klot-backend/venv/
+klot-backend/__pycache__/
+klot-backend/*.db
+klot-backend/.env
