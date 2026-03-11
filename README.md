@@ -104,6 +104,4 @@ Full interactive docs available at `http://localhost:8000/docs`
 
 ## Author
 
-## Author
-
 Built by **Chinmay** — just a fun side project to learn full stack development 🖤
