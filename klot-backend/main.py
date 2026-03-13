@@ -1,9 +1,9 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from database import init_db, get_db
+from database import init_db
 from routers import newsletter, contact, products, orders, returns
-import sqlite3
+from routers import auth
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,6 +25,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router,       prefix="/api/auth",       tags=["Auth"])
 app.include_router(newsletter.router, prefix="/api/newsletter", tags=["Newsletter"])
 app.include_router(contact.router,    prefix="/api/contact",    tags=["Contact"])
 app.include_router(products.router,   prefix="/api/products",   tags=["Products"])

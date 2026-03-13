@@ -17,6 +17,19 @@ def init_db():
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
 
+    # ── Users ──────────────────────────────────────────────────
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            email         TEXT UNIQUE NOT NULL,
+            name          TEXT NOT NULL,
+            password_hash TEXT,
+            avatar        TEXT,
+            google_id     TEXT,
+            created_at    TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
     # ── Newsletter ─────────────────────────────────────────────
     c.execute("""
         CREATE TABLE IF NOT EXISTS newsletter (
@@ -84,16 +97,16 @@ def init_db():
         )
     """)
 
-    # ── Seed some sample products ──────────────────────────────
+    # ── Seed products ──────────────────────────────────────────
     c.execute("SELECT COUNT(*) FROM products")
     if c.fetchone()[0] == 0:
         sample_products = [
-            ("Shadow Oversized Tee",  "Void Series",   "400gsm heavyweight cotton. Dropped shoulders.",  120.0, "XS,S,M,L,XL,XXL", 50, "New Drop",  "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600"),
-            ("Carbon Relaxed Trouser","Carbon Layer",  "Japanese selvedge denim. Tapered cut.",          280.0, "28,30,32,34,36",   30, "Essentials","https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600"),
-            ("Slate Bomber",          "Slate Form",    "Wool-blend shell. Ribbed cuffs and hem.",        420.0, "S,M,L,XL",         15, "Limited",   "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600"),
-            ("Obsidian Coach Jacket", "Obsidian",      "Nylon ripstop. Minimal branding.",               320.0, "S,M,L,XL,XXL",     25, "Signature", "https://images.unsplash.com/photo-1487222477894-8943e31ef7b2?w=600"),
-            ("Void Knit Beanie",      "Void Series",   "Merino wool. One size.",                          60.0, "ONE SIZE",          80, "New Drop",  None),
-            ("Carbon Utility Vest",   "Carbon Layer",  "Multi-pocket technical vest. Water resistant.",  240.0, "S,M,L,XL",         20, "Essentials",None),
+            ("Shadow Oversized Tee",   "Void Series",   "400gsm heavyweight cotton. Dropped shoulders.",  120.0, "XS,S,M,L,XL,XXL", 50, "New Drop",   "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600"),
+            ("Carbon Relaxed Trouser", "Carbon Layer",  "Japanese selvedge denim. Tapered cut.",          280.0, "28,30,32,34,36",   30, "Essentials", "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=600"),
+            ("Slate Bomber",           "Slate Form",    "Wool-blend shell. Ribbed cuffs and hem.",        420.0, "S,M,L,XL",         15, "Limited",    "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600"),
+            ("Obsidian Coach Jacket",  "Obsidian",      "Nylon ripstop. Minimal branding.",               320.0, "S,M,L,XL,XXL",     25, "Signature",  "https://images.unsplash.com/photo-1487222477894-8943e31ef7b2?w=600"),
+            ("Void Knit Beanie",       "Void Series",   "Merino wool. One size.",                          60.0, "ONE SIZE",          80, "New Drop",   None),
+            ("Carbon Utility Vest",    "Carbon Layer",  "Multi-pocket technical vest. Water resistant.",  240.0, "S,M,L,XL",         20, "Essentials", None),
         ]
         c.executemany(
             "INSERT INTO products (name, collection, description, price, sizes, stock, tag, image_url) VALUES (?,?,?,?,?,?,?,?)",

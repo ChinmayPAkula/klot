@@ -4,3 +4,17 @@ klot-backend/venv/
 klot-backend/__pycache__/
 klot-backend/*.db
 klot-backend/.env
+klot-backend/.env
+klot-website/.env
+klot-backend/venv/
+klot-backend/*.db
+klot-website/node_modules/
+klot-website/dist/
+klot-backend/.env
+klot-website/.env
+klot-backend/venv/
+klot-backend/*.db
+klot-backend/__pycache__/
+klot-backend/routers/__pycache__/
+klot-website/node_modules/
+klot-website/dist/
