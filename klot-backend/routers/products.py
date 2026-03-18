@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Response
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from database import get_db
 import sqlite3
 
@@ -11,7 +11,7 @@ class ProductCreate(BaseModel):
     collection: str
     description: Optional[str] = None
     price: float
-    sizes: str           # comma-separated e.g. "S,M,L,XL"
+    sizes: str
     stock: int = 0
     tag: Optional[str] = None
     image_url: Optional[str] = None
@@ -19,7 +19,7 @@ class ProductCreate(BaseModel):
 class StockUpdate(BaseModel):
     stock: int
 
-@router.get("/")
+@router.get("/", status_code=200)
 def list_products(
     collection: Optional[str] = None,
     in_stock: Optional[bool] = None,
@@ -43,7 +43,12 @@ def list_products(
         result.append(p)
     return result
 
-@router.get("/{product_id}")
+@router.get("/collections/list", status_code=200)
+def list_collections(db: sqlite3.Connection = Depends(get_db)):
+    rows = db.execute("SELECT DISTINCT collection FROM products").fetchall()
+    return [r["collection"] for r in rows]
+
+@router.get("/{product_id}", status_code=200)
 def get_product(product_id: int, db: sqlite3.Connection = Depends(get_db)):
     row = db.execute("SELECT * FROM products WHERE id=?", (product_id,)).fetchone()
     if not row:
@@ -62,22 +67,22 @@ def create_product(payload: ProductCreate, db: sqlite3.Connection = Depends(get_
     db.commit()
     return {"message": "Product created.", "id": cur.lastrowid}
 
-@router.patch("/{product_id}/stock")
+@router.patch("/{product_id}/stock", status_code=200)
 def update_stock(product_id: int, payload: StockUpdate, db: sqlite3.Connection = Depends(get_db)):
     row = db.execute("SELECT id FROM products WHERE id=?", (product_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Product not found.")
+    if payload.stock < 0:
+        raise HTTPException(status_code=400, detail="Stock cannot be negative.")
     db.execute("UPDATE products SET stock=? WHERE id=?", (payload.stock, product_id))
     db.commit()
-    return {"message": "Stock updated."}
+    return {"message": "Stock updated.", "product_id": product_id, "stock": payload.stock}
 
-@router.delete("/{product_id}")
+@router.delete("/{product_id}", status_code=204)
 def delete_product(product_id: int, db: sqlite3.Connection = Depends(get_db)):
+    row = db.execute("SELECT id FROM products WHERE id=?", (product_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Product not found.")
     db.execute("DELETE FROM products WHERE id=?", (product_id,))
     db.commit()
-    return {"message": "Product deleted."}
-
-@router.get("/collections/list")
-def list_collections(db: sqlite3.Connection = Depends(get_db)):
-    rows = db.execute("SELECT DISTINCT collection FROM products").fetchall()
-    return [r["collection"] for r in rows]
+    return Response(status_code=204)
