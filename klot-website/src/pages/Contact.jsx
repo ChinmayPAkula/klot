@@ -55,7 +55,7 @@ export default function Contact() {
             <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
               {[
                 { Icon: Mail, label: "Email", value: "hello@klot.co" },
-                { Icon: MapPin, label: "Studio", value: "Lisbon, Portugal" },
+                { Icon: MapPin, label: "Studio", value: "Bangalore, Karnataka" },
                 { Icon: Clock, label: "Response time", value: "Within 48 hours" },
               ].map(({ Icon, label, value }) => (
                 <div key={label} style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>

@@ -78,7 +78,7 @@ export default function ProductDetail() {
             style={{ paddingTop: 20 }}>
             <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.6rem", letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 12 }}>{product.collection}</p>
             <h1 style={{ fontFamily: "'Playfair Display', serif", color: "white", fontSize: "clamp(2rem,4vw,3rem)", fontWeight: 700, marginBottom: 16, lineHeight: 1.1 }}>{product.name}</h1>
-            <p style={{ color: "white", fontSize: "1.5rem", fontWeight: 300, marginBottom: 32 }}>£{product.price}</p>
+            <p style={{ color: "white", fontSize: "1.5rem", fontWeight: 300, marginBottom: 32 }}>₹{product.price}</p>
 
             {product.description && (
               <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.875rem", lineHeight: 1.9, marginBottom: 40, fontWeight: 300, maxWidth: 420 }}>

@@ -97,7 +97,7 @@ export default function Cart() {
 
                   {/* Price */}
                   <p style={{ color: "white", fontSize: "0.9rem", fontWeight: 300, textAlign: "right", margin: 0 }}>
-                    £{(item.price * item.quantity).toFixed(2)}
+                    ₹{(item.price * item.quantity).toFixed(2)}
                   </p>
                 </motion.div>
               ))}
@@ -121,7 +121,7 @@ export default function Cart() {
               <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 24 }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.75rem" }}>Subtotal</span>
-                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.75rem" }}>£{total.toFixed(2)}</span>
+                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.75rem" }}>₹{total.toFixed(2)}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.75rem" }}>Shipping</span>
@@ -136,15 +136,17 @@ export default function Cart() {
               <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 20, marginBottom: 28 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ color: "white", fontSize: "0.8rem", letterSpacing: "0.1em", textTransform: "uppercase" }}>Total</span>
-                  <span style={{ fontFamily: "'Playfair Display', serif", color: "white", fontSize: "1.4rem", fontWeight: 700 }}>£{total.toFixed(2)}</span>
+                  <span style={{ fontFamily: "'Playfair Display', serif", color: "white", fontSize: "1.4rem", fontWeight: 700 }}>₹{total.toFixed(2)}</span>
                 </div>
               </div>
 
-              <button style={{ width: "100%", padding: "16px", background: "white", color: "black", border: "none", fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 12 }}
-                onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
-                onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
-                Checkout <ArrowRight style={{ width: 14, height: 14 }} />
-              </button>
+              <Link to="/checkout" style={{ textDecoration: "none", display: "block", marginBottom: 12 }}>
+                <button style={{ width: "100%", padding: "16px", background: "white", color: "black", border: "none", fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
+                  onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
+                  Proceed to Checkout <ArrowRight style={{ width: 14, height: 14 }} />
+                </button>
+              </Link>
 
               <Link to="/collections" style={{ textDecoration: "none", display: "block", textAlign: "center" }}>
                 <button style={{ width: "100%", padding: "14px", background: "transparent", color: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.08)", fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase", cursor: "pointer" }}

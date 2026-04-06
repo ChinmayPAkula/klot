@@ -150,7 +150,7 @@ function ProductCard({ product, index }) {
           <div style={{ position: "absolute", bottom: 18, left: 18, right: 18 }}>
             <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.5rem", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 4 }}>{product.collection}</p>
             <p style={{ fontFamily: "'Playfair Display', serif", color: "white", fontSize: "1.05rem", fontWeight: 700, margin: "0 0 4px" }}>{product.name}</p>
-            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem", margin: 0 }}>£{product.price}</p>
+            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem", margin: 0 }}>₹{product.price}</p>
           </div>
 
           {/* Hover arrow */}

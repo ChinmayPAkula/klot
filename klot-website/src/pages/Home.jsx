@@ -124,9 +124,9 @@ export default function Home() {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
             {[
-              { img: "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=600&q=80", name: "Shadow Hoodie", price: "£180", col: "Void Series" },
-              { img: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600&q=80", name: "Slate Bomber", price: "£420", col: "Slate Form" },
-              { img: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&q=80", name: "Obsidian Tee", price: "£95", col: "Obsidian" },
+              { img: "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=600&q=80", name: "Shadow Hoodie", price: "₹180", col: "Void Series" },
+              { img: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600&q=80", name: "Slate Bomber", price: "₹420", col: "Slate Form" },
+              { img: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&q=80", name: "Obsidian Tee", price: "₹95", col: "Obsidian" },
             ].map((item, i) => (
               <motion.div key={item.name} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: i * 0.1 }} viewport={{ once: true }}>
                 <Link to="/collections" style={{ textDecoration: "none", display: "block" }}>
