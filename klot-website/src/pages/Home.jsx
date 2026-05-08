@@ -1,7 +1,8 @@
 import { motion } from "framer-motion"
 import { Link } from "react-router-dom"
 import { Circle, ArrowRight } from "lucide-react"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import { apiFetch } from "../api"
 
 function cn(...classes) { return classes.filter(Boolean).join(" ") }
 
@@ -23,6 +24,18 @@ function ElegantShape({ className, delay = 0, width = 400, height = 100, rotate 
 }
 
 export default function Home() {
+  const [featured, setFeatured] = useState([])
+
+  useEffect(() => {
+    apiFetch("/products/")
+      .then(products => {
+        // Pick first 3 products that have an image
+        const withImages = products.filter(p => p.image_url)
+        setFeatured(withImages.slice(0, 3))
+      })
+      .catch(() => {})
+  }, [])
+
   const fadeUp = {
     hidden: { opacity: 0, y: 30 },
     visible: (i) => ({ opacity: 1, y: 0, transition: { duration: 1, delay: 0.6 + i * 0.2, ease: [0.25, 0.4, 0.25, 1] } })
@@ -56,7 +69,7 @@ export default function Home() {
 
           <motion.div custom={2} variants={fadeUp} initial="hidden" animate="visible">
             <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.875rem", lineHeight: 1.8, maxWidth: 400, margin: "0 auto 48px", fontWeight: 300 }}>
-              Minimal forms. Luxurious fabrics. Designed for those who let the cloth speak.
+              Minimal forms. Luxurious fabrics. Designed for those who let their clothes speak.
             </p>
           </motion.div>
 
@@ -106,7 +119,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Preview collections ── */}
+      {/* ── New This Season ── */}
       <section style={{ background: "#060606", padding: "100px 64px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} viewport={{ once: true }}
@@ -123,22 +136,22 @@ export default function Home() {
           </motion.div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-            {[
-              { img: "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=600&q=80", name: "Shadow Hoodie", price: "₹180", col: "Void Series" },
-              { img: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=600&q=80", name: "Slate Bomber", price: "₹420", col: "Slate Form" },
-              { img: "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&q=80", name: "Obsidian Tee", price: "₹95", col: "Obsidian" },
-            ].map((item, i) => (
-              <motion.div key={item.name} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: i * 0.1 }} viewport={{ once: true }}>
-                <Link to="/collections" style={{ textDecoration: "none", display: "block" }}>
+            {featured.map((product, i) => (
+              <motion.div key={product.id} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: i * 0.1 }} viewport={{ once: true }}>
+                <Link to={`/collections/${product.id}`} style={{ textDecoration: "none", display: "block" }}>
                   <div style={{ position: "relative", overflow: "hidden", height: 380, cursor: "pointer" }}>
-                    <img src={item.img} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover", filter: "grayscale(100%)", transition: "transform 0.6s ease" }}
+                    <img
+                      src={product.image_url}
+                      alt={product.name}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", filter: "grayscale(100%)", transition: "transform 0.6s ease" }}
                       onMouseEnter={e => e.target.style.transform = "scale(1.04)"}
-                      onMouseLeave={e => e.target.style.transform = "scale(1)"} />
+                      onMouseLeave={e => e.target.style.transform = "scale(1)"}
+                    />
                     <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(0,0,0,0.7) 0%,transparent 60%)" }} />
                     <div style={{ position: "absolute", bottom: 20, left: 20 }}>
-                      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.55rem", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 4 }}>{item.col}</p>
-                      <p style={{ fontFamily: "'Playfair Display', serif", color: "white", fontSize: "1.1rem", fontWeight: 700, margin: "0 0 4px" }}>{item.name}</p>
-                      <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem", margin: 0 }}>{item.price}</p>
+                      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.55rem", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 4 }}>{product.collection}</p>
+                      <p style={{ fontFamily: "'Playfair Display', serif", color: "white", fontSize: "1.1rem", fontWeight: 700, margin: "0 0 4px" }}>{product.name}</p>
+                      <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem", margin: 0 }}>₹{product.price.toLocaleString("en-IN")}</p>
                     </div>
                   </div>
                 </Link>

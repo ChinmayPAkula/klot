@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, Link } from "react-router-dom"
-import { motion } from "framer-motion"
-import { ArrowLeft, AlertCircle, CheckCircle, Loader2, ShoppingBag } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { ArrowLeft, AlertCircle, CheckCircle, Loader2, ShoppingBag, ChevronLeft, ChevronRight } from "lucide-react"
 import { apiFetch } from "../api"
 import { useCart } from "../context/CartContext"
 
@@ -14,13 +14,25 @@ export default function ProductDetail() {
   const [selectedSize, setSelectedSize] = useState(null)
   const [added, setAdded] = useState(false)
   const [sizeError, setSizeError] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [isZoomed, setIsZoomed] = useState(false)
+  const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 })
 
   useEffect(() => {
     apiFetch(`/products/${id}`)
-      .then(p => { setProduct(p); if (p.sizes?.length) setSelectedSize(p.sizes[0]) })
+      .then(p => {
+        setProduct(p)
+        if (p.sizes?.length) setSelectedSize(p.sizes[0])
+      })
       .catch(() => setError("Product not found."))
       .finally(() => setLoading(false))
   }, [id])
+
+  // Build full image list: primary image_url + extra images from product_images table
+  const allImages = product ? [
+    ...(product.image_url ? [product.image_url] : []),
+    ...(product.images || []).map(img => img.image_url)
+  ] : []
 
   const handleAdd = () => {
     if (product.stock === 0) return
@@ -28,6 +40,16 @@ export default function ProductDetail() {
     addToCart(product, selectedSize)
     setAdded(true)
     setTimeout(() => setAdded(false), 2500)
+  }
+
+  const prevImage = () => setActiveIndex(i => (i === 0 ? allImages.length - 1 : i - 1))
+  const nextImage = () => setActiveIndex(i => (i === allImages.length - 1 ? 0 : i + 1))
+
+  const handleMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+    setZoomPos({ x, y })
   }
 
   if (loading) return (
@@ -50,7 +72,8 @@ export default function ProductDetail() {
 
         <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }}
           style={{ marginBottom: 48 }}>
-          <Link to="/collections" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.3)", fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase", textDecoration: "none" }}
+          <Link to="/collections"
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.3)", fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase", textDecoration: "none" }}
             onMouseEnter={e => e.currentTarget.style.color = "white"}
             onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.3)"}>
             <ArrowLeft style={{ width: 12, height: 12 }} /> Back to Collections
@@ -59,21 +82,114 @@ export default function ProductDetail() {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "start" }}>
 
+          {/* ── Left: Gallery ── */}
           <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }}>
-            <div style={{ position: "relative", overflow: "hidden", aspectRatio: "3/4" }}>
-              {product.image_url
-                ? <img src={product.image_url} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover", filter: "grayscale(100%)" }} />
-                : <div style={{ width: "100%", height: "100%", background: "rgba(255,255,255,0.03)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ color: "rgba(255,255,255,0.1)", fontSize: "0.7rem", letterSpacing: "0.2em", textTransform: "uppercase" }}>No image</span>
+
+            {allImages.length > 0 ? (
+              <div style={{ display: "flex", gap: 12 }}>
+
+                {/* Thumbnails — vertical strip on the left */}
+                {allImages.length > 1 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, width: 64, flexShrink: 0 }}>
+                    {allImages.map((img, i) => (
+                      <div key={i} onClick={() => setActiveIndex(i)}
+                        style={{
+                          width: 64, height: 80, overflow: "hidden", cursor: "pointer", flexShrink: 0,
+                          border: `1px solid ${activeIndex === i ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.08)"}`,
+                          opacity: activeIndex === i ? 1 : 0.45,
+                          transition: "all 0.2s"
+                        }}
+                        onMouseEnter={e => { if (activeIndex !== i) e.currentTarget.style.opacity = "0.75" }}
+                        onMouseLeave={e => { if (activeIndex !== i) e.currentTarget.style.opacity = "0.45" }}>
+                        <img src={img} alt={`${product.name} ${i + 1}`}
+                          style={{ width: "100%", height: "100%", objectFit: "cover", filter: "grayscale(100%)" }} />
+                      </div>
+                    ))}
                   </div>
-              }
-              <div style={{ position: "absolute", top: 20, left: 20, display: "flex", gap: 8 }}>
-                {product.tag && <span style={{ background: "rgba(255,255,255,0.08)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.6)", fontSize: "0.55rem", letterSpacing: "0.2em", textTransform: "uppercase", padding: "4px 14px" }}>{product.tag}</span>}
-                {product.stock === 0 && <span style={{ background: "rgba(255,60,60,0.1)", border: "1px solid rgba(255,60,60,0.2)", color: "rgba(255,100,100,0.7)", fontSize: "0.55rem", letterSpacing: "0.2em", textTransform: "uppercase", padding: "4px 14px" }}>Sold Out</span>}
+                )}
+
+                {/* Main image */}
+                <div style={{ flex: 1, position: "relative" }}>
+                  <div
+                    style={{ position: "relative", overflow: "hidden", aspectRatio: "3/4", cursor: isZoomed ? "crosshair" : "zoom-in" }}
+                    onMouseEnter={() => setIsZoomed(true)}
+                    onMouseLeave={() => setIsZoomed(false)}
+                    onMouseMove={handleMouseMove}>
+
+                    <AnimatePresence mode="wait">
+                      <motion.img
+                        key={activeIndex}
+                        src={allImages[activeIndex]}
+                        alt={product.name}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.25 }}
+                        style={{
+                          width: "100%", height: "100%", objectFit: "cover",
+                          filter: "grayscale(100%)",
+                          transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
+                          transform: isZoomed ? "scale(1.8)" : "scale(1)",
+                          transition: isZoomed ? "transform 0.1s ease-out" : "transform 0.3s ease-out"
+                        }}
+                      />
+                    </AnimatePresence>
+
+                    {/* Tags */}
+                    {!isZoomed && (
+                      <div style={{ position: "absolute", top: 20, left: 20, display: "flex", gap: 8 }}>
+                        {product.tag && (
+                          <span style={{ background: "rgba(255,255,255,0.08)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.6)", fontSize: "0.55rem", letterSpacing: "0.2em", textTransform: "uppercase", padding: "4px 14px" }}>
+                            {product.tag}
+                          </span>
+                        )}
+                        {product.stock === 0 && (
+                          <span style={{ background: "rgba(255,60,60,0.1)", border: "1px solid rgba(255,60,60,0.2)", color: "rgba(255,100,100,0.7)", fontSize: "0.55rem", letterSpacing: "0.2em", textTransform: "uppercase", padding: "4px 14px" }}>
+                            Sold Out
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Prev / Next arrows — only if multiple images */}
+                    {allImages.length > 1 && !isZoomed && (
+                      <>
+                        <button onClick={prevImage}
+                          style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.1)", color: "white", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(4px)" }}
+                          onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.7)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.4)"}>
+                          <ChevronLeft style={{ width: 14, height: 14 }} />
+                        </button>
+                        <button onClick={nextImage}
+                          style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.1)", color: "white", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", backdropFilter: "blur(4px)" }}
+                          onMouseEnter={e => e.currentTarget.style.background = "rgba(0,0,0,0.7)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "rgba(0,0,0,0.4)"}>
+                          <ChevronRight style={{ width: 14, height: 14 }} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Dot indicators */}
+                  {allImages.length > 1 && (
+                    <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 16 }}>
+                      {allImages.map((_, i) => (
+                        <div key={i} onClick={() => setActiveIndex(i)}
+                          style={{ width: activeIndex === i ? 20 : 6, height: 6, background: activeIndex === i ? "white" : "rgba(255,255,255,0.2)", cursor: "pointer", transition: "all 0.3s" }} />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              // No image fallback
+              <div style={{ aspectRatio: "3/4", background: "rgba(255,255,255,0.03)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ color: "rgba(255,255,255,0.1)", fontSize: "0.7rem", letterSpacing: "0.2em", textTransform: "uppercase" }}>No image</span>
+              </div>
+            )}
           </motion.div>
 
+          {/* ── Right: Product Info ── */}
           <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, delay: 0.1 }}
             style={{ paddingTop: 20 }}>
             <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.6rem", letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 12 }}>{product.collection}</p>
@@ -129,7 +245,8 @@ export default function ProductDetail() {
 
             {added && (
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-                <Link to="/cart" style={{ display: "block", textAlign: "center", marginTop: 12, color: "rgba(255,255,255,0.4)", fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase", textDecoration: "none" }}
+                <Link to="/cart"
+                  style={{ display: "block", textAlign: "center", marginTop: 12, color: "rgba(255,255,255,0.4)", fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase", textDecoration: "none" }}
                   onMouseEnter={e => e.currentTarget.style.color = "white"}
                   onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.4)"}>
                   View Bag →

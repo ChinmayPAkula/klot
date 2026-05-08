@@ -1,10 +1,12 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from pathlib import Path
 from database import init_db
 from routers import newsletter, contact, products, orders, returns, auth
 from routers import payments, addresses
@@ -14,6 +16,8 @@ limiter = Limiter(key_func=get_remote_address)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Make sure static/images folder exists on startup
+    Path("static/images").mkdir(parents=True, exist_ok=True)
     yield
 
 app = FastAPI(
@@ -34,6 +38,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve local images at /static/images/
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(auth.router,       prefix="/api/auth",       tags=["Auth"])
 app.include_router(newsletter.router, prefix="/api/newsletter", tags=["Newsletter"])

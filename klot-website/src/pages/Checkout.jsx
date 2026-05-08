@@ -6,8 +6,6 @@ import { useCart } from "../context/CartContext"
 import { useAuth } from "../context/AuthContext"
 import { apiFetch } from "../api"
 
-// Using OpenStreetMap - no API key needed
-
 export default function Checkout() {
   const { cart, total, clearCart } = useCart()
   const { user, token } = useAuth()
@@ -26,12 +24,13 @@ export default function Checkout() {
   const [detecting, setDetecting] = useState(false)
   const [loading, setLoading] = useState(false)
   const [savingAddress, setSavingAddress] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
   const [orderId, setOrderId] = useState(null)
   const [suggestions, setSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const searchTimeout = useRef(null)  // ← single declaration here, removed the duplicate below
+  const searchTimeout = useRef(null)
 
   const inp = {
     width: "100%", background: "rgba(255,255,255,0.03)",
@@ -52,7 +51,7 @@ export default function Checkout() {
     }).catch(() => {})
   }, [token])
 
-  // Fetch address suggestions from OpenStreetMap
+  // OSM address search
   const searchAddress = (query) => {
     setNewAddress(query)
     if (searchTimeout.current) clearTimeout(searchTimeout.current)
@@ -81,9 +80,9 @@ export default function Checkout() {
     setShowSuggestions(false)
   }
 
-  // Detect current location
+  // GPS detect
   const detectLocation = () => {
-    if (!navigator.geolocation) { setError("Geolocation not supported by your browser."); return }
+    if (!navigator.geolocation) { setError("Geolocation not supported."); return }
     setDetecting(true)
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -111,16 +110,19 @@ export default function Checkout() {
         setDetecting(false)
       },
       (err) => {
-        if (err.code === 1) setError("Location access denied. Please allow location in your browser.")
+        if (err.code === 1) setError("Location access denied.")
         else setError("Could not get location. Try searching manually.")
         setDetecting(false)
       }
     )
   }
 
+  // Save address
   const saveAddress = async () => {
     if (!newAddress.trim() || !newLabel.trim()) { setError("Please fill in label and address."); return }
+    if (!token) { navigate("/login"); return }
     setSavingAddress(true)
+    setError(null)
     try {
       const saved = await apiFetch("/addresses/", {
         method: "POST",
@@ -133,24 +135,39 @@ export default function Checkout() {
       setShowAddNew(false)
       setNewAddress(""); setNewCity(""); setNewState(""); setNewPincode(""); setNewLabel("Home")
     } catch (err) {
-      setError(err.message)
+      if (err.message?.includes("401") || err.message?.toLowerCase().includes("token")) {
+        navigate("/login")
+      } else {
+        setError(err.message || "Failed to save address.")
+      }
     } finally {
       setSavingAddress(false)
     }
   }
 
+  // Delete address
   const deleteAddress = async (id) => {
+    if (deletingId !== null) return
+    setDeletingId(id)
+    setError(null)
+    const previous = [...addresses]
+    const updated = addresses.filter(a => a.id !== id)
+    setAddresses(updated)
+    if (selectedAddress?.id === id) setSelectedAddress(updated[0] || null)
     try {
       await apiFetch(`/addresses/${id}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       })
-      const updated = addresses.filter(a => a.id !== id)
-      setAddresses(updated)
-      if (selectedAddress?.id === id) setSelectedAddress(updated[0] || null)
-    } catch {}
+    } catch {
+      setAddresses(previous)
+      setError("Failed to delete address.")
+    } finally {
+      setDeletingId(null)
+    }
   }
 
+  // Payment
   const handlePayment = async () => {
     if (!user) { navigate("/login"); return }
     if (!selectedAddress) { setError("Please select or add a delivery address."); return }
@@ -200,6 +217,7 @@ export default function Checkout() {
     } catch (err) { setError(err.message); setLoading(false) }
   }
 
+  // Success screen
   if (success) return (
     <div style={{ minHeight: "100vh", background: "#060606", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}
@@ -219,6 +237,7 @@ export default function Checkout() {
     </div>
   )
 
+  // Empty cart screen
   if (cart.length === 0) return (
     <div style={{ minHeight: "100vh", background: "#060606", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
       <ShoppingBag style={{ width: 40, height: 40, color: "rgba(255,255,255,0.08)" }} />
@@ -242,7 +261,7 @@ export default function Checkout() {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 60 }}>
 
-          {/* Left — delivery */}
+          {/* Left */}
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, delay: 0.1 }}>
 
             {/* Account */}
@@ -254,20 +273,18 @@ export default function Checkout() {
                   <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.8rem", margin: 0 }}>{user.email}</p>
                 </>
               ) : (
-                <Link to="/login" style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.8rem", textDecoration: "none" }}
-                  onMouseEnter={e => e.currentTarget.style.color = "white"} onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.4)"}>
+                <Link to="/login" style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.8rem", textDecoration: "none" }}>
                   Sign in to continue →
                 </Link>
               )}
             </div>
 
-            {/* Delivery address */}
             <p style={{ color: "rgba(255,255,255,0.25)", fontSize: "0.6rem", letterSpacing: "0.3em", textTransform: "uppercase", marginBottom: 20 }}>Delivery Address</p>
 
-            {/* Detect location */}
+            {/* GPS detect */}
             <button onClick={detectLocation} disabled={detecting}
-              style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", fontSize: "0.7rem", letterSpacing: "0.15em", textTransform: "uppercase", padding: "12px 20px", cursor: "pointer", width: "100%", marginBottom: 16, transition: "all 0.3s" }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; e.currentTarget.style.color = "white" }}
+              style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", fontSize: "0.7rem", letterSpacing: "0.15em", textTransform: "uppercase", padding: "12px 20px", cursor: detecting ? "not-allowed" : "pointer", width: "100%", marginBottom: 16, transition: "all 0.3s" }}
+              onMouseEnter={e => { if (!detecting) { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; e.currentTarget.style.color = "white" } }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "rgba(255,255,255,0.6)" }}>
               {detecting
                 ? <><Loader2 style={{ width: 14, height: 14, animation: "spin 1s linear infinite" }} /> Detecting...</>
@@ -295,31 +312,38 @@ export default function Checkout() {
                         {addr.city && <p style={{ color: "rgba(255,255,255,0.25)", fontSize: "0.7rem", margin: "4px 0 0" }}>{addr.city}{addr.state ? `, ${addr.state}` : ""}{addr.pincode ? ` — ${addr.pincode}` : ""}</p>}
                       </div>
                     </div>
-                    <button onClick={e => { e.stopPropagation(); deleteAddress(addr.id) }}
-                      style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", padding: 4, flexShrink: 0 }}
-                      onMouseEnter={e => e.currentTarget.style.color = "rgba(255,100,100,0.6)"}
+                    <button
+                      onClick={e => { e.stopPropagation(); deleteAddress(addr.id) }}
+                      disabled={deletingId === addr.id}
+                      style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: deletingId === addr.id ? "not-allowed" : "pointer", padding: 4, flexShrink: 0 }}
+                      onMouseEnter={e => { if (deletingId !== addr.id) e.currentTarget.style.color = "rgba(255,100,100,0.6)" }}
                       onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.2)"}>
-                      <Trash2 style={{ width: 13, height: 13 }} />
+                      {deletingId === addr.id
+                        ? <Loader2 style={{ width: 13, height: 13, animation: "spin 1s linear infinite" }} />
+                        : <Trash2 style={{ width: 13, height: 13 }} />
+                      }
                     </button>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Add new address */}
+            {/* Add new toggle */}
             <button onClick={() => setShowAddNew(!showAddNew)}
               style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", color: "rgba(255,255,255,0.35)", fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase", cursor: "pointer", padding: "8px 0", marginBottom: 16 }}
-              onMouseEnter={e => e.currentTarget.style.color = "white"} onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.35)"}>
+              onMouseEnter={e => { e.currentTarget.style.color = "white" }}
+              onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.35)" }}>
               {showAddNew ? <X style={{ width: 12, height: 12 }} /> : <Plus style={{ width: 12, height: 12 }} />}
               {showAddNew ? "Cancel" : "Add new address"}
             </button>
 
-            {/* New address form */}
+            {/* Add new form */}
             <AnimatePresence>
               {showAddNew && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.3 }}
                   style={{ overflow: "hidden" }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingBottom: 8 }}>
+
                     {/* Label */}
                     <div>
                       <label style={{ display: "block", color: "rgba(255,255,255,0.25)", fontSize: "0.55rem", letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: 8 }}>Label</label>
@@ -337,7 +361,7 @@ export default function Checkout() {
                       </div>
                     </div>
 
-                    {/* Address search with OSM autocomplete */}
+                    {/* Search */}
                     <div style={{ position: "relative" }}>
                       <label style={{ display: "block", color: "rgba(255,255,255,0.25)", fontSize: "0.55rem", letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: 8 }}>Search Address</label>
                       <input value={newAddress} onChange={e => searchAddress(e.target.value)}
@@ -359,7 +383,7 @@ export default function Checkout() {
                       )}
                     </div>
 
-                    {/* City, State, Pincode */}
+                    {/* City State Pincode */}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                       {[["City", newCity, setNewCity], ["State", newState, setNewState], ["Pincode", newPincode, setNewPincode]].map(([label, val, setter]) => (
                         <div key={label}>
@@ -389,10 +413,11 @@ export default function Checkout() {
             )}
           </motion.div>
 
-          {/* Right — order summary */}
+          {/* Right — summary */}
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, delay: 0.2 }}
             style={{ border: "1px solid rgba(255,255,255,0.06)", padding: "32px 28px", position: "sticky", top: 120, alignSelf: "start" }}>
             <p style={{ fontFamily: "'Playfair Display', serif", color: "white", fontSize: "1.1rem", fontWeight: 700, marginBottom: 24 }}>Order Summary</p>
+
             <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
               {cart.map(item => (
                 <div key={`${item.id}-${item.size}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -404,6 +429,7 @@ export default function Checkout() {
                 </div>
               ))}
             </div>
+
             <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 20, marginBottom: 28 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
                 <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.75rem" }}>Subtotal</span>
@@ -440,6 +466,7 @@ export default function Checkout() {
                 : !selectedAddress ? "Select a delivery address" : "Pay Now"
               }
             </button>
+
             <p style={{ color: "rgba(255,255,255,0.15)", fontSize: "0.6rem", textAlign: "center", marginTop: 16, lineHeight: 1.6 }}>
               Secured by Razorpay. Test mode active.
             </p>

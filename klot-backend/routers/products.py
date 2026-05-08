@@ -19,6 +19,17 @@ class ProductCreate(BaseModel):
 class StockUpdate(BaseModel):
     stock: int
 
+class ProductImageAdd(BaseModel):
+    image_url: str
+    sort_order: int = 0
+
+def get_product_images(product_id: int, db: sqlite3.Connection) -> list:
+    rows = db.execute(
+        "SELECT * FROM product_images WHERE product_id=? ORDER BY sort_order ASC",
+        (product_id,)
+    ).fetchall()
+    return [dict(r) for r in rows]
+
 @router.get("/", status_code=200)
 def list_products(
     collection: Optional[str] = None,
@@ -40,6 +51,7 @@ def list_products(
     for r in rows:
         p = dict(r)
         p["sizes"] = p["sizes"].split(",")
+        p["images"] = get_product_images(p["id"], db)
         result.append(p)
     return result
 
@@ -55,6 +67,7 @@ def get_product(product_id: int, db: sqlite3.Connection = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Product not found.")
     p = dict(row)
     p["sizes"] = p["sizes"].split(",")
+    p["images"] = get_product_images(product_id, db)
     return p
 
 @router.post("/", status_code=201)
@@ -84,5 +97,37 @@ def delete_product(product_id: int, db: sqlite3.Connection = Depends(get_db)):
     if not row:
         raise HTTPException(status_code=404, detail="Product not found.")
     db.execute("DELETE FROM products WHERE id=?", (product_id,))
+    db.commit()
+    return Response(status_code=204)
+
+# ── Product Images ─────────────────────────────────────────────────────────────
+
+@router.get("/{product_id}/images", status_code=200)
+def list_product_images(product_id: int, db: sqlite3.Connection = Depends(get_db)):
+    row = db.execute("SELECT id FROM products WHERE id=?", (product_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Product not found.")
+    return get_product_images(product_id, db)
+
+@router.post("/{product_id}/images", status_code=201)
+def add_product_image(product_id: int, payload: ProductImageAdd, db: sqlite3.Connection = Depends(get_db)):
+    row = db.execute("SELECT id FROM products WHERE id=?", (product_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Product not found.")
+    cur = db.execute(
+        "INSERT INTO product_images (product_id, image_url, sort_order) VALUES (?,?,?)",
+        (product_id, payload.image_url, payload.sort_order)
+    )
+    db.commit()
+    return {"message": "Image added.", "id": cur.lastrowid}
+
+@router.delete("/{product_id}/images/{image_id}", status_code=204)
+def delete_product_image(product_id: int, image_id: int, db: sqlite3.Connection = Depends(get_db)):
+    row = db.execute(
+        "SELECT id FROM product_images WHERE id=? AND product_id=?", (image_id, product_id)
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Image not found.")
+    db.execute("DELETE FROM product_images WHERE id=?", (image_id,))
     db.commit()
     return Response(status_code=204)

@@ -4,7 +4,7 @@ from pathlib import Path
 DB_PATH = Path("klot.db")
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     try:
@@ -85,6 +85,18 @@ def init_db():
         )
     """)
 
+    # ── Product Images ─────────────────────────────────────────
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS product_images (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id  INTEGER NOT NULL,
+            image_url   TEXT NOT NULL,
+            sort_order  INTEGER DEFAULT 0,
+            created_at  TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+        )
+    """)
+
     # ── Orders ─────────────────────────────────────────────────
     c.execute("""
         CREATE TABLE IF NOT EXISTS orders (
@@ -132,4 +144,4 @@ def init_db():
 
     conn.commit()
     conn.close()
-    print("✅ KLOT database initialised")
+    print("KLOT database initialised")
