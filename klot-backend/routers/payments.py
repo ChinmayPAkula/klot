@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException, Depends, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List
-from database import get_db
-import sqlite3
+from sqlalchemy.orm import Session
+from database import get_db, Order, Product
 import razorpay
 import json
 import os
@@ -48,27 +48,24 @@ class VerifyPaymentPayload(BaseModel):
     address: str
     items: List[CartItem]
 
-# Step 1 — Create Razorpay order
 @router.post("/create-order", status_code=201)
 def create_order(
     payload: CreateOrderPayload,
-    db: sqlite3.Connection = Depends(get_db),
+    db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
     if not payload.items:
         raise HTTPException(status_code=400, detail="Cart is empty.")
 
-    # Validate stock
     for item in payload.items:
-        row = db.execute("SELECT stock, name FROM products WHERE id=?", (item.product_id,)).fetchone()
-        if not row:
+        product = db.query(Product).filter(Product.id == item.product_id).first()
+        if not product:
             raise HTTPException(status_code=404, detail=f"Product '{item.name}' not found.")
-        if row["stock"] < item.quantity:
-            raise HTTPException(status_code=400, detail=f"Insufficient stock for '{row['name']}'.")
+        if product.stock < item.quantity:
+            raise HTTPException(status_code=400, detail=f"Insufficient stock for '{product.name}'.")
 
     total = sum(i.price * i.quantity for i in payload.items)
-    # Razorpay uses paise (1 INR = 100 paise) — using GBP as base, multiply by 100
-    amount_paise = int(total * 100)  # Prices already in INR, convert to paise
+    amount_paise = int(total * 100)
 
     try:
         razorpay_order = client.order.create({
@@ -86,14 +83,12 @@ def create_order(
         "key_id": RAZORPAY_KEY_ID
     }
 
-# Step 2 — Verify payment and save order
 @router.post("/verify", status_code=201)
 def verify_payment(
     payload: VerifyPaymentPayload,
-    db: sqlite3.Connection = Depends(get_db),
+    db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    # Verify signature
     try:
         client.utility.verify_payment_signature({
             "razorpay_order_id": payload.razorpay_order_id,
@@ -103,25 +98,28 @@ def verify_payment(
     except Exception:
         raise HTTPException(status_code=400, detail="Payment verification failed. Invalid signature.")
 
-    # Save order to DB
     total = sum(i.price * i.quantity for i in payload.items)
-    items_json = json.dumps([i.model_dump() for i in payload.items])
-
-    cur = db.execute(
-        "INSERT INTO orders (customer_name, customer_email, address, items, total, status) VALUES (?,?,?,?,?,?)",
-        (current_user["name"], current_user["email"], payload.address, items_json, total, "confirmed")
+    order = Order(
+        customer_name=current_user["name"],
+        customer_email=current_user["email"],
+        address=payload.address,
+        items=json.dumps([i.model_dump() for i in payload.items]),
+        total=total,
+        status="confirmed"
     )
-    order_id = cur.lastrowid
+    db.add(order)
 
-    # Deduct stock
     for item in payload.items:
-        db.execute("UPDATE products SET stock = stock - ? WHERE id=?", (item.quantity, item.product_id))
+        product = db.query(Product).filter(Product.id == item.product_id).first()
+        if product:
+            product.stock -= item.quantity
 
     db.commit()
+    db.refresh(order)
 
     return {
         "message": "Payment successful. Order confirmed.",
-        "order_id": order_id,
+        "order_id": order.id,
         "payment_id": payload.razorpay_payment_id,
         "total": total
     }

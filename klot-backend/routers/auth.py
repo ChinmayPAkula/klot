@@ -2,10 +2,10 @@ from fastapi import APIRouter, HTTPException, Depends, Security, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 from typing import Optional
-from database import get_db
+from sqlalchemy.orm import Session
+from database import get_db, User
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-import sqlite3
 import hashlib
 import jwt
 import datetime
@@ -44,23 +44,6 @@ def verify_jwt(token: str) -> dict:
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token.")
 
-def get_or_create_user(email: str, name: str, avatar: Optional[str] = None, google_id: Optional[str] = None) -> dict:
-    from database import DB_PATH
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    try:
-        row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
-        if row:
-            return dict(row)
-        cur = conn.execute(
-            "INSERT INTO users (email, name, avatar, google_id) VALUES (?, ?, ?, ?)",
-            (email, name, avatar, google_id)
-        )
-        conn.commit()
-        return {"id": cur.lastrowid, "email": email, "name": name, "avatar": avatar}
-    finally:
-        conn.close()
-
 class RegisterPayload(BaseModel):
     name: str
     email: EmailStr
@@ -73,48 +56,45 @@ class LoginPayload(BaseModel):
 class GooglePayload(BaseModel):
     credential: str
 
-# 5 register attempts per minute per IP
 @router.post("/register", status_code=201)
 @limiter.limit("5/minute")
-def register(request: Request, payload: RegisterPayload, db: sqlite3.Connection = Depends(get_db)):
-    existing = db.execute("SELECT id FROM users WHERE email = ?", (payload.email,)).fetchone()
+def register(request: Request, payload: RegisterPayload, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=409, detail="An account with this email already exists.")
-    hashed = hash_password(payload.password)
-    cur = db.execute(
-        "INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)",
-        (payload.email, payload.name, hashed)
+    user = User(
+        email=payload.email,
+        name=payload.name,
+        password_hash=hash_password(payload.password)
     )
+    db.add(user)
     db.commit()
-    user_id = cur.lastrowid
-    token = create_jwt(user_id, payload.email, payload.name)
+    db.refresh(user)
+    token = create_jwt(user.id, user.email, user.name)
     return {
         "token": token,
-        "user": {"id": user_id, "email": payload.email, "name": payload.name, "avatar": None}
+        "user": {"id": user.id, "email": user.email, "name": user.name, "avatar": None}
     }
 
-# 10 login attempts per minute per IP
 @router.post("/login", status_code=200)
 @limiter.limit("10/minute")
-def login(request: Request, payload: LoginPayload, db: sqlite3.Connection = Depends(get_db)):
-    row = db.execute("SELECT * FROM users WHERE email = ?", (payload.email,)).fetchone()
-    if not row:
+def login(request: Request, payload: LoginPayload, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user:
         raise HTTPException(status_code=404, detail="No account found with this email.")
-    user = dict(row)
-    if not user.get("password_hash"):
+    if not user.password_hash:
         raise HTTPException(status_code=401, detail="This account uses Google login. Please sign in with Google.")
-    if user["password_hash"] != hash_password(payload.password):
+    if user.password_hash != hash_password(payload.password):
         raise HTTPException(status_code=401, detail="Incorrect password.")
-    token = create_jwt(user["id"], user["email"], user["name"])
+    token = create_jwt(user.id, user.email, user.name)
     return {
         "token": token,
-        "user": {"id": user["id"], "email": user["email"], "name": user["name"], "avatar": user.get("avatar")}
+        "user": {"id": user.id, "email": user.email, "name": user.name, "avatar": user.avatar}
     }
 
-# 10 Google login attempts per minute per IP
 @router.post("/google", status_code=200)
 @limiter.limit("10/minute")
-async def google_login(request: Request, payload: GooglePayload):
+async def google_login(request: Request, payload: GooglePayload, db: Session = Depends(get_db)):
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             "https://oauth2.googleapis.com/tokeninfo",
@@ -131,20 +111,27 @@ async def google_login(request: Request, payload: GooglePayload):
     google_id = info.get("sub")
     if not email:
         raise HTTPException(status_code=401, detail="Could not retrieve email from Google.")
-    user = get_or_create_user(email, name, avatar, google_id)
-    token = create_jwt(user["id"], user["email"], user["name"])
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        user = User(email=email, name=name, avatar=avatar, google_id=google_id)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    token = create_jwt(user.id, user.email, user.name)
     return {
         "token": token,
-        "user": {"id": user["id"], "email": user["email"], "name": user["name"], "avatar": user.get("avatar")}
+        "user": {"id": user.id, "email": user.email, "name": user.name, "avatar": user.avatar}
     }
 
 @router.get("/me", status_code=200)
 def get_me(
     credentials: HTTPAuthorizationCredentials = Security(security),
-    db: sqlite3.Connection = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     payload = verify_jwt(credentials.credentials)
-    row = db.execute("SELECT id, email, name, avatar FROM users WHERE id = ?", (payload["user_id"],)).fetchone()
-    if not row:
+    user = db.query(User).filter(User.id == payload["user_id"]).first()
+    if not user:
         raise HTTPException(status_code=404, detail="User not found.")
-    return dict(row)
+    return {"id": user.id, "email": user.email, "name": user.name, "avatar": user.avatar}

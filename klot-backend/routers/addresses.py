@@ -1,9 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends, Security
+from fastapi.responses import Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import Optional
-from database import get_db
-import sqlite3
+from sqlalchemy.orm import Session
+from database import get_db, Address
 import jwt
 import os
 from dotenv import load_dotenv
@@ -25,7 +26,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Security(securi
         raise HTTPException(status_code=401, detail="Invalid token.")
 
 class AddressPayload(BaseModel):
-    label: str        # Home, Office, Mom's place etc.
+    label: str
     full_address: str
     city: Optional[str] = None
     state: Optional[str] = None
@@ -35,40 +36,54 @@ class AddressPayload(BaseModel):
 
 @router.get("/", status_code=200)
 def list_addresses(
-    db: sqlite3.Connection = Depends(get_db),
+    db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    rows = db.execute(
-        "SELECT * FROM addresses WHERE user_id=? ORDER BY created_at DESC",
-        (current_user["user_id"],)
-    ).fetchall()
-    return [dict(r) for r in rows]
+    addresses = db.query(Address).filter(
+        Address.user_id == current_user["user_id"]
+    ).order_by(Address.created_at.desc()).all()
+    return [
+        {
+            "id": a.id, "user_id": a.user_id, "label": a.label,
+            "full_address": a.full_address, "city": a.city,
+            "state": a.state, "pincode": a.pincode,
+            "lat": a.lat, "lng": a.lng,
+            "created_at": str(a.created_at)
+        } for a in addresses
+    ]
 
 @router.post("/", status_code=201)
 def add_address(
     payload: AddressPayload,
-    db: sqlite3.Connection = Depends(get_db),
+    db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    cur = db.execute(
-        "INSERT INTO addresses (user_id, label, full_address, city, state, pincode, lat, lng) VALUES (?,?,?,?,?,?,?,?)",
-        (current_user["user_id"], payload.label, payload.full_address, payload.city, payload.state, payload.pincode, payload.lat, payload.lng)
+    address = Address(
+        user_id=current_user["user_id"],
+        label=payload.label,
+        full_address=payload.full_address,
+        city=payload.city,
+        state=payload.state,
+        pincode=payload.pincode,
+        lat=payload.lat,
+        lng=payload.lng
     )
+    db.add(address)
     db.commit()
-    return {"message": "Address saved.", "id": cur.lastrowid}
+    db.refresh(address)
+    return {"message": "Address saved.", "id": address.id}
 
 @router.delete("/{address_id}", status_code=204)
 def delete_address(
     address_id: int,
-    db: sqlite3.Connection = Depends(get_db),
+    db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    row = db.execute("SELECT user_id FROM addresses WHERE id=?", (address_id,)).fetchone()
-    if not row:
+    address = db.query(Address).filter(Address.id == address_id).first()
+    if not address:
         raise HTTPException(status_code=404, detail="Address not found.")
-    if row["user_id"] != current_user["user_id"]:
+    if address.user_id != current_user["user_id"]:
         raise HTTPException(status_code=403, detail="Not your address.")
-    db.execute("DELETE FROM addresses WHERE id=?", (address_id,))
+    db.delete(address)
     db.commit()
-    from fastapi.responses import Response
     return Response(status_code=204)
