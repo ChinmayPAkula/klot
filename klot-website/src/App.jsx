@@ -13,6 +13,7 @@ import Register from "./pages/Register"
 import Navbar from "./components/Navbar"
 import Footer from "./components/Footer"
 import ScrollToTop from "./components/ScrollToTop"
+import Admin from "./pages/Admin"
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/admin" element={<Admin />} />
             </Routes>
             <Footer />
           </div>
