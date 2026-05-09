@@ -1,4 +1,4 @@
-export const API = "http://localhost:8000/api"
+export const API = "https://klot-backend.onrender.com/api"
 
 export async function apiFetch(path, options = {}) {
   const res = await fetch(`${API}${path}`, {
