@@ -11,13 +11,14 @@ from database import init_db
 from routers import newsletter, contact, products, orders, returns, auth
 from routers import payments, addresses
 
+# Create static/images folder before app starts
+Path("static/images").mkdir(parents=True, exist_ok=True)
+
 limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    # Make sure static/images folder exists on startup
-    Path("static/images").mkdir(parents=True, exist_ok=True)
     yield
 
 app = FastAPI(
