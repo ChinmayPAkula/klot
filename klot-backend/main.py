@@ -51,3 +51,7 @@ app.include_router(images.router,     prefix="/api/images",     tags=["Images"])
 @app.get("/")
 def root():
     return {"message": "KLOT API is live 🖤"}
+
+@app.get("/ping")
+def ping():
+    return {"ok": True}
