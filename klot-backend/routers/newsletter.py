@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from database import get_db, Newsletter
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from emails import send_newsletter_welcome
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -22,6 +23,7 @@ def signup(request: Request, payload: NewsletterSignup, db: Session = Depends(ge
     subscriber = Newsletter(email=payload.email)
     db.add(subscriber)
     db.commit()
+    send_newsletter_welcome(payload.email)
     return {"message": "You're in. Welcome to KLOT. 🖤"}
 
 @router.get("/list", status_code=200)

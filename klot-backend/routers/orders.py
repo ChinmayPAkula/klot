@@ -8,6 +8,7 @@ import json
 import jwt
 import os
 from dotenv import load_dotenv
+from emails import send_order_status_update
 
 load_dotenv()
 
@@ -131,4 +132,10 @@ def update_order_status(
         raise HTTPException(status_code=404, detail="Order not found.")
     order.status = payload.status
     db.commit()
+    send_order_status_update(
+        email=order.customer_email,
+        name=order.customer_name,
+        order_id=order_id,
+        status=payload.status
+    )
     return {"message": f"Order status updated to '{payload.status}'.", "order_id": order_id}

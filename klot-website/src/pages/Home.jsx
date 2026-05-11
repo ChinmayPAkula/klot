@@ -23,13 +23,58 @@ function ElegantShape({ className, delay = 0, width = 400, height = 100, rotate 
   )
 }
 
+function NewsletterForm() {
+  const [email, setEmail] = useState("")
+  const [status, setStatus] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  const submit = async () => {
+    if (!email) return
+    setLoading(true)
+    setStatus(null)
+    try {
+      await apiFetch("/newsletter/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      })
+      setStatus({ type: "success", msg: "You're in. Welcome to KLOT. 🖤" })
+      setEmail("")
+    } catch (err) {
+      setStatus({ type: "error", msg: err.message || "Something went wrong." })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, maxWidth: 420, margin: "0 auto" }}>
+        <input type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && submit()}
+          style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "white", fontSize: "0.8rem", padding: "14px 18px", outline: "none" }}
+          onFocus={e => e.target.style.borderColor = "rgba(255,255,255,0.25)"}
+          onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"} />
+        <button onClick={submit} disabled={loading}
+          style={{ background: "white", color: "black", border: "none", fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", padding: "14px 24px", cursor: loading ? "not-allowed" : "pointer", fontWeight: 600, opacity: loading ? 0.7 : 1 }}>
+          {loading ? "..." : "Join"}
+        </button>
+      </div>
+      {status && (
+        <p style={{ marginTop: 16, fontSize: "0.75rem", color: status.type === "success" ? "rgba(255,255,255,0.6)" : "rgba(255,100,100,0.7)" }}>
+          {status.msg}
+        </p>
+      )}
+    </div>
+  )
+}
+
 export default function Home() {
   const [featured, setFeatured] = useState([])
 
   useEffect(() => {
     apiFetch("/products/")
       .then(products => {
-        // Pick first 3 products that have an image
         const withImages = products.filter(p => p.image_url)
         setFeatured(withImages.slice(0, 3))
       })
@@ -170,15 +215,7 @@ export default function Home() {
           <p style={{ color: "rgba(255,255,255,0.28)", fontSize: "0.875rem", marginBottom: 32, fontWeight: 300 }}>
             Join the inner circle.
           </p>
-          <div style={{ display: "flex", gap: 8, maxWidth: 420, margin: "0 auto" }}>
-            <input type="email" placeholder="your@email.com"
-              style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", color: "white", fontSize: "0.8rem", padding: "14px 18px", outline: "none" }}
-              onFocus={e => e.target.style.borderColor = "rgba(255,255,255,0.25)"}
-              onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"} />
-            <button style={{ background: "white", color: "black", border: "none", fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", padding: "14px 24px", cursor: "pointer", fontWeight: 600 }}>
-              Join
-            </button>
-          </div>
+          <NewsletterForm />
         </motion.div>
       </section>
     </>

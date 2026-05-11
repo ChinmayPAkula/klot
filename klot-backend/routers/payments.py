@@ -9,6 +9,7 @@ import json
 import os
 import jwt
 from dotenv import load_dotenv
+from emails import send_order_confirmation
 
 load_dotenv()
 
@@ -116,6 +117,15 @@ def verify_payment(
 
     db.commit()
     db.refresh(order)
+
+    send_order_confirmation(
+        email=current_user["email"],
+        name=current_user["name"],
+        order_id=order.id,
+        total=total,
+        items=[i.model_dump() for i in payload.items],
+        address=payload.address
+    )
 
     return {
         "message": "Payment successful. Order confirmed.",
